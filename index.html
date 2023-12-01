@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/video.js/7.11.7/video-js.min.css" rel="stylesheet" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/video.js/7.11.7/video.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/videojs-contrib-eme@3.8.0/dist/videojs-contrib-eme.js"></script>
+    <title>Test VideoJS DRM</title>
+
+    <style>
+        /* Style for the seek bar segments */
+        .vjs-segment {
+            position: absolute;
+            height: 100%;
+            z-index: 10;
+        }
+
+        /* Style for the segment markers */
+        .vjs-segment-marker {
+            position: absolute;
+            height: 100%;
+            width: 4px;
+            background-color: #000;
+            z-index: 15;
+        }
+
+        /* Tooltip styling */
+        .tooltip .tooltiptext {
+            visibility: hidden;
+            position: absolute;
+            z-index: 20;
+            bottom: 110%;
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            text-align: center;
+            padding: 5px;
+            border-radius: 6px;
+            white-space: nowrap;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        /* Show the tooltip text when hovering over the segment */
+        .vjs-segment:hover .tooltiptext {
+            visibility: visible;
+            opacity: 1;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div style="margin: 50px auto;">
+        <video id="my-video" class="video-js vjs-default-skin" width="640" height="264"></video>
+    </div>
+
+    <script>
+        // Constants
+        const SEGMENT_MARKER_WIDTH = 4; // this sould be same as width of vjs-segment-marker
+        const VIDEO_SOURCE_URL = 'https://cdn.bitmovin.com/content/assets/art-of-motion_drm/mpds/11331.mpd';
+        const DRM_KEY_SYSTEM = 'https://cwip-shaka-proxy.appspot.com/no_auth';
+
+        // Define segments and descriptions
+        const segments = [
+            { start: 0, end: 30, description: "Introduction" },
+            { start: 30, end: 60, description: "Chapter 1" },
+            { start: 60, end: 90, description: "Chapter 2" },
+            { start: 90, end: 210, description: "Conclusion" }
+        ];
+
+        // Initialize the player
+        const player = videojs('my-video', {
+            controls: true,
+            autoplay: false,
+            preload: 'auto',
+            fluid: true,
+            html5: {
+                vhs: {
+                    overrideNative: true
+                }
+            }
+        });
+
+        // DRM configuration and source setting
+        player.ready(function () {
+            player.eme();
+            player.src({
+                src: VIDEO_SOURCE_URL,
+                type: 'application/dash+xml',
+                keySystems: {
+                    'com.widevine.alpha': DRM_KEY_SYSTEM
+                }
+            });
+        });
+
+        // When the player has loaded metadata, create segment markers with tooltips
+        player.on('loadedmetadata', function () {
+            createSegments(player);
+        });
+
+        // Function to create segments on the seekbar with tooltips
+        function createSegments(player) {
+            const duration = player.duration();
+            const progressBar = player.controlBar.progressControl.seekBar;
+
+            segments.forEach(segment => {
+                const startPercentage = (segment.start / duration) * 100;
+                const endPercentage = (segment.end / duration) * 100;
+                const segmentWidth = endPercentage - startPercentage;
+
+                // Create segment div
+                const segmentDiv = document.createElement('div');
+                segmentDiv.className = 'vjs-segment tooltip';
+                segmentDiv.style.left = `${startPercentage}%`;
+                segmentDiv.style.width = `${segmentWidth}%`;
+
+                // Create segment marker
+                const marker = document.createElement('div');
+                marker.className = 'vjs-segment-marker';
+                marker.style.left = `calc(${startPercentage}% - ${SEGMENT_MARKER_WIDTH / 2}px)`;
+
+                // Create tooltip element for the segment
+                const tooltip = document.createElement('span');
+                tooltip.className = 'tooltiptext';
+                tooltip.textContent = segment.description;
+                segmentDiv.appendChild(tooltip);
+
+                progressBar.el().appendChild(segmentDiv);
+                progressBar.el().appendChild(marker);
+            });
+        }
+
+        // Function to scroll to a specific segment
+        function scrollToSegment(segmentIndex) {
+            const segment = segments[segmentIndex];
+            if (segment) {
+                player.currentTime(segment.start);
+            }
+        }
+
+        //test scrollToSegment function
+        // player.on('play', function() {
+        //     scrollToSegment(2); // Scrolls to the third segment
+        // });
+
+    </script>
+</body>
+
+</html>
